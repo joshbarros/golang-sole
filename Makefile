@@ -39,14 +39,7 @@ images: ## build the two images
 	docker build --target web -t golang-sole-web:dev .
 
 cluster-up: images ## kind cluster + images + manifests; waits until everything is Ready
-	@kind get clusters | grep -qx $(CLUSTER) || kind create cluster --config deploy/kind/cluster.yaml
-	kind load docker-image golang-sole-api:dev golang-sole-web:dev --name $(CLUSTER)
-	./scripts/kind-secrets.sh
-	kubectl --context kind-$(CLUSTER) apply -k deploy/k8s/overlays/kind
-	kubectl --context kind-$(CLUSTER) -n $(NS) rollout status statefulset/postgres statefulset/kafka statefulset/rabbitmq --timeout=300s
-	kubectl --context kind-$(CLUSTER) -n $(NS) rollout restart deployment/api deployment/web
-	kubectl --context kind-$(CLUSTER) -n $(NS) rollout status deployment/api deployment/web --timeout=300s
-	@for i in $$(seq 1 60); do curl -sf http://127.0.0.1:5228/api/health/ready >/dev/null && curl -sf http://127.0.0.1:8108/ >/dev/null && echo "ready: api http://127.0.0.1:5228, web http://127.0.0.1:8108" && exit 0; sleep 2; done; echo "the NodePorts never answered"; exit 1
+	./scripts/cluster-up.sh
 
 cluster-down: ## delete the kind cluster
 	kind delete cluster --name $(CLUSTER)
