@@ -1,0 +1,132 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sole-config
+  labels: { app.kubernetes.io/part-of: sole }
+data:
+  KAFKA_BROKERS: kafka:9092
+  LOG_JSON: "true"
+  FORWARDED_HEADERS: "true"
+  JWT_ISSUER: sole-api
+  JWT_AUDIENCE: sole-web
+  JWT_ACCESS_MINUTES: "15"
+  JWT_REFRESH_DAYS: "14"
+  # Defaults for a real deployment; the kind overlay relaxes them for the demo.
+  AUTH_REQUIRE_CONFIRMED_EMAIL: "true"
+  MAIL_DEV_MAILBOX: "false"
+  RATE_LIMIT_AUTH_PER_MINUTE: "20"
+  JWT_REVOCATION_CACHE_SECONDS: "5"
+  ORDERS_FINAL_MARK_DELAY_MS: "0"
+  RAFFLES_DRAW_INTERVAL_MS: "1000"
+  AUTH_PUBLIC_URL: http://localhost:8108
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  labels: { app.kubernetes.io/name: api, app.kubernetes.io/part-of: sole }
+spec:
+  selector: { app.kubernetes.io/name: api }
+  ports:
+    - { name: http, port: 8080, targetPort: 8080 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  labels: { app.kubernetes.io/name: api, app.kubernetes.io/part-of: sole }
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels: { app.kubernetes.io/name: api }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: api, app.kubernetes.io/part-of: sole }
+    spec:
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: { app.kubernetes.io/name: api }
+      initContainers:
+        # Applies the schema once before any replica serves. Several replicas starting together are safe: each module
+        # migrates behind a Postgres advisory lock.
+        - name: migrate
+          image: golang-sole-api:dev
+          imagePullPolicy: IfNotPresent
+          args: ["migrate"]
+          envFrom: [{ configMapRef: { name: sole-config } }]
+          env: &env
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: sole-secrets, key: POSTGRES_PASSWORD } }
+            - name: RABBITMQ_PASSWORD
+              valueFrom: { secretKeyRef: { name: sole-secrets, key: RABBITMQ_PASSWORD } }
+            - name: DATABASE_URL
+              value: postgres://sole:$(POSTGRES_PASSWORD)@postgres:5432/sole?sslmode=disable
+            - name: RABBITMQ_URL
+              value: amqp://platform:$(RABBITMQ_PASSWORD)@rabbitmq:5672/
+            - name: JWT_KEY
+              valueFrom: { secretKeyRef: { name: sole-secrets, key: JWT_KEY } }
+            - name: ADMIN_EMAIL
+              valueFrom: { secretKeyRef: { name: sole-secrets, key: ADMIN_EMAIL } }
+            - name: ADMIN_PASSWORD
+              valueFrom: { secretKeyRef: { name: sole-secrets, key: ADMIN_PASSWORD } }
+          securityContext: &container-security
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          resources:
+            requests: { cpu: 50m, memory: 32Mi }
+            limits: { memory: 128Mi }
+      containers:
+        - name: api
+          image: golang-sole-api:dev
+          imagePullPolicy: IfNotPresent
+          ports: [{ name: http, containerPort: 8080 }]
+          envFrom: [{ configMapRef: { name: sole-config } }]
+          env:
+            - { name: MIGRATE_ON_START, value: "false" }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: sole-secrets, key: POSTGRES_PASSWORD } }
+            - name: RABBITMQ_PASSWORD
+              valueFrom: { secretKeyRef: { name: sole-secrets, key: RABBITMQ_PASSWORD } }
+            - name: DATABASE_URL
+              value: postgres://sole:$(POSTGRES_PASSWORD)@postgres:5432/sole?sslmode=disable
+            - name: RABBITMQ_URL
+              value: amqp://platform:$(RABBITMQ_PASSWORD)@rabbitmq:5672/
+            - name: JWT_KEY
+              valueFrom: { secretKeyRef: { name: sole-secrets, key: JWT_KEY } }
+          securityContext: *container-security
+          startupProbe:
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 2
+            failureThreshold: 60
+          livenessProbe:
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /api/health/ready, port: http }
+            periodSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests: { cpu: 100m, memory: 64Mi }
+            limits: { memory: 256Mi }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api
+  labels: { app.kubernetes.io/name: api, app.kubernetes.io/part-of: sole }
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: { app.kubernetes.io/name: api }

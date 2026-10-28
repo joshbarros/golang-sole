@@ -1,0 +1,10 @@
+# A one-node cluster whose NodePorts are published on 127.0.0.1 only.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: golang-sole
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - { containerPort: 30108, hostPort: 8108, listenAddress: "127.0.0.1" }   # web
+      - { containerPort: 30228, hostPort: 5228, listenAddress: "127.0.0.1" }   # api
+      - { containerPort: 30718, hostPort: 15718, listenAddress: "127.0.0.1" }  # RabbitMQ management

@@ -1,0 +1,139 @@
+<section
+  aria-labelledby="sec-h"
+  class="mx-auto mb-6 max-w-6xl space-y-4 rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200"
+>
+  <h2 id="sec-h" class="text-lg font-semibold">Account security</h2>
+
+  @if (notice()) {
+    <p
+      role="status"
+      class="rounded-md bg-sky-50 px-3 py-2 text-sm text-sky-900 ring-1 ring-sky-200"
+    >
+      {{ notice() }}
+    </p>
+  }
+  @if (error()) {
+    <p
+      role="alert"
+      class="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-800 ring-1 ring-rose-200"
+    >
+      {{ error() }}
+    </p>
+  }
+
+  <div class="grid gap-6 md:grid-cols-2">
+    <div>
+      <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">
+        Two-factor authentication
+      </h3>
+      @if (recoveryCodes().length) {
+        <p class="mt-2 text-sm text-slate-700">Recovery codes: each works once.</p>
+        <ul class="mt-1 grid grid-cols-2 gap-1 font-mono text-xs" data-testid="recovery-codes">
+          @for (c of recoveryCodes(); track c) {
+            <li>{{ c }}</li>
+          }
+        </ul>
+      }
+      @if (!enabled()) {
+        @if (setup(); as pendingKey) {
+          <p class="mt-2 text-sm text-slate-700">
+            Add this key to your authenticator app, then enter the code it shows.
+          </p>
+          <p class="mt-1 break-all font-mono text-xs" data-testid="mfa-key">
+            {{ pendingKey.sharedKey }}
+          </p>
+          <p class="mt-1 break-all text-xs text-slate-500">{{ pendingKey.otpAuthUri }}</p>
+          <label for="s-code" class="mt-3 block text-xs font-medium text-slate-600">
+            Code from the app
+          </label>
+          <input
+            id="s-code"
+            inputmode="numeric"
+            class="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+            [value]="code()"
+            (input)="field(code, $event)"
+          />
+          <button
+            type="button"
+            (click)="turnOn()"
+            class="mt-2 rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
+          >
+            Turn on
+          </button>
+        } @else {
+          <p class="mt-2 text-sm text-slate-600">Off. Add a second step to signing in.</p>
+          <button
+            type="button"
+            (click)="startSetup()"
+            class="mt-2 rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
+          >
+            Set up two-factor
+          </button>
+        }
+      } @else {
+        <p class="mt-2 text-sm text-emerald-800">On.</p>
+        <label for="s-dpw" class="mt-2 block text-xs font-medium text-slate-600">Password</label>
+        <input
+          id="s-dpw"
+          type="password"
+          class="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+          [value]="disablePassword()"
+          (input)="field(disablePassword, $event)"
+        />
+        <label for="s-dcode" class="mt-2 block text-xs font-medium text-slate-600">
+          Code or recovery code
+        </label>
+        <input
+          id="s-dcode"
+          class="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+          [value]="code()"
+          (input)="field(code, $event)"
+        />
+        <button
+          type="button"
+          (click)="turnOff()"
+          class="mt-2 rounded-md px-3 py-1.5 text-sm text-rose-800 ring-1 ring-rose-300"
+        >
+          Turn off
+        </button>
+      }
+    </div>
+
+    <div>
+      <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Password</h3>
+      <form class="mt-2 space-y-2" (submit)="$event.preventDefault(); changePassword()">
+        <label for="s-cur" class="block text-xs font-medium text-slate-600">Current password</label>
+        <input
+          id="s-cur"
+          type="password"
+          autocomplete="current-password"
+          class="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+          [value]="currentPassword()"
+          (input)="field(currentPassword, $event)"
+        />
+        <label for="s-new" class="block text-xs font-medium text-slate-600">New password</label>
+        <input
+          id="s-new"
+          type="password"
+          autocomplete="new-password"
+          class="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+          [value]="newPassword()"
+          (input)="field(newPassword, $event)"
+        />
+        <button
+          type="submit"
+          class="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
+        >
+          Change password
+        </button>
+      </form>
+      <button
+        type="button"
+        (click)="signOutEverywhere()"
+        class="mt-4 rounded-md px-3 py-1.5 text-sm text-slate-700 ring-1 ring-slate-300"
+      >
+        Sign out everywhere
+      </button>
+    </div>
+  </div>
+</section>

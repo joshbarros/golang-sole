@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.nx/
+.angular/
+.env
+.env.*
+!.env.example
+test-results/
+playwright-report/
+coverage/
+*.test
+*.out
+.DS_Store
+deploy/k8s/overlays/kind/secrets.env
+/golang-sole-api

@@ -1,0 +1,11 @@
+node_modules
+dist
+.nx
+.git
+.env
+.angular
+test-results
+playwright-report
+deploy
+docs
+e2e

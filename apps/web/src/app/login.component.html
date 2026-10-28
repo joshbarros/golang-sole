@@ -1,0 +1,146 @@
+<h1 class="mt-10 text-center text-2xl font-semibold tracking-tight">Sole</h1>
+<section
+  aria-labelledby="auth-h"
+  class="mx-auto mt-6 max-w-sm rounded-lg bg-white p-6 shadow-sm ring-1 ring-slate-200"
+>
+  <h2 id="auth-h" class="text-lg font-semibold">
+    @switch (mode()) {
+      @case ('register') {
+        Create an account
+      }
+      @case ('forgot') {
+        Reset your password
+      }
+      @case ('reset') {
+        Choose a new password
+      }
+      @default {
+        Sign in
+      }
+    }
+  </h2>
+  <p class="mt-1 text-sm text-slate-600">
+    @switch (mode()) {
+      @case ('register') {
+        Customers can buy pairs and see their own orders.
+      }
+      @case ('forgot') {
+        We will email you a link to choose a new password.
+      }
+      @case ('reset') {
+        At least 10 characters with upper case, lower case and a digit.
+      }
+      @default {
+        Sign in to buy pairs on a raffle.
+      }
+    }
+  </p>
+
+  @if (notice()) {
+    <p
+      role="status"
+      class="mt-4 rounded-md bg-sky-50 px-3 py-2 text-sm text-sky-900 ring-1 ring-sky-200"
+    >
+      {{ notice() }}
+    </p>
+  }
+  @if (error()) {
+    <p
+      role="alert"
+      class="mt-4 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-800 ring-1 ring-rose-200"
+    >
+      {{ error() }}
+    </p>
+  }
+
+  <form class="mt-4 space-y-3" (submit)="$event.preventDefault(); submit()">
+    @if (mode() !== 'reset') {
+      <div>
+        <label for="a-email" class="block text-xs font-medium text-slate-600">Email</label>
+        <input
+          id="a-email"
+          type="email"
+          autocomplete="username"
+          class="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+          [value]="email()"
+          (input)="field(email, $event)"
+        />
+      </div>
+    }
+    @if (mode() !== 'forgot') {
+      <div>
+        <label for="a-password" class="block text-xs font-medium text-slate-600">
+          {{ mode() === 'reset' ? 'New password' : 'Password' }}
+        </label>
+        <input
+          id="a-password"
+          type="password"
+          [attr.autocomplete]="mode() === 'login' ? 'current-password' : 'new-password'"
+          class="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+          [value]="password()"
+          (input)="field(password, $event)"
+        />
+        @if (mode() === 'register') {
+          <p class="mt-1 text-xs text-slate-500">
+            At least 10 characters with upper case, lower case and a digit.
+          </p>
+        }
+      </div>
+    }
+    @if (mode() === 'login' && needsCode()) {
+      <div>
+        <label for="a-code" class="block text-xs font-medium text-slate-600">
+          Verification code
+        </label>
+        <input
+          id="a-code"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          class="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+          [value]="code()"
+          (input)="field(code, $event)"
+        />
+      </div>
+    }
+    <button
+      type="submit"
+      [disabled]="busy()"
+      class="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
+    >
+      @switch (mode()) {
+        @case ('register') {
+          Create account
+        }
+        @case ('forgot') {
+          Send the link
+        }
+        @case ('reset') {
+          Change password
+        }
+        @default {
+          Sign in
+        }
+      }
+    </button>
+  </form>
+
+  <div class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-sky-800">
+    @if (mode() === 'login') {
+      <button type="button" (click)="go('register')" class="underline underline-offset-2">
+        Need an account? Register
+      </button>
+      <button type="button" (click)="go('forgot')" class="underline underline-offset-2">
+        Forgot your password?
+      </button>
+      @if (email()) {
+        <button type="button" (click)="resend()" class="underline underline-offset-2">
+          Resend the confirmation email
+        </button>
+      }
+    } @else {
+      <button type="button" (click)="go('login')" class="underline underline-offset-2">
+        Have an account? Sign in
+      </button>
+    }
+  </div>
+</section>

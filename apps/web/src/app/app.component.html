@@ -1,0 +1,35 @@
+@if (auth.user(); as user) {
+  <div class="mx-auto flex max-w-6xl items-center justify-end gap-3 px-4 pt-4 text-sm">
+    <span data-testid="whoami" class="text-slate-700">
+      {{ user.email }}
+      <span class="ml-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs ring-1 ring-slate-300">
+        {{ user.roles.join(', ') }}
+      </span>
+    </span>
+    <button
+      type="button"
+      (click)="showSecurity.set(!showSecurity())"
+      class="rounded px-2 py-1 text-xs text-slate-600 ring-1 ring-slate-300 hover:bg-slate-50"
+    >
+      Security
+    </button>
+    <button
+      type="button"
+      (click)="signOut()"
+      class="rounded px-2 py-1 text-xs text-slate-600 ring-1 ring-slate-300 hover:bg-slate-50"
+    >
+      Sign out
+    </button>
+  </div>
+}
+
+@if (!auth.ready()) {
+  <p class="mx-auto max-w-6xl px-4 py-8 text-sm text-slate-500">Loading…</p>
+} @else if (auth.user()) {
+  @if (showSecurity()) {
+    <div class="px-4 pt-4"><app-security /></div>
+  }
+  <app-workspace />
+} @else {
+  <app-login />
+}

@@ -1,0 +1,87 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: sole_test
+          POSTGRES_USER: sole
+          POSTGRES_PASSWORD: sole
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sole"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TEST_DATABASE_URL: "postgres://sole:sole@localhost:5432/sole_test?sslmode=disable"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: gofmt and go vet
+        run: make lint
+      - name: Unit tests (no Docker), with the race detector
+        run: go test -race -count=1 $(go list ./cmd/... ./internal/... | grep -v /integration)
+      - name: Integration tests (real Postgres, the real middleware chain), with the race detector
+        run: go test -race -count=1 ./internal/integration/...
+      - name: No known-vulnerable Go packages
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./cmd/... ./internal/...
+      - run: npm audit --omit=dev --audit-level=high
+      - name: Web format, types, lint, build
+        run: |
+          npm run format:check
+          npx nx run-many -t typecheck lint build -p web
+      - name: The manifests render
+        run: |
+          ./scripts/kind-secrets.sh
+          kubectl kustomize deploy/k8s/overlays/kind > /dev/null
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: A kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: golang-sole
+          config: deploy/kind/cluster.yaml
+      - name: Build the images, load them, apply the manifests, wait for Ready
+        run: make cluster-up
+      - name: Smoke (HTTP, against the NodePort)
+        run: ./scripts/smoke.sh
+      - name: Browser specs
+        run: npx playwright test
+      - name: Kill an API replica and RabbitMQ mid-raffle
+        run: ./scripts/resilience.sh
+      - name: Cluster state and logs
+        if: failure()
+        run: |
+          kubectl -n sole get pods,svc,pdb -o wide || true
+          kubectl -n sole describe pods || true
+          kubectl -n sole logs -l app.kubernetes.io/name=api --all-containers --tail=200 --prefix || true
+      - name: Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: test-results/
+          if-no-files-found: ignore
