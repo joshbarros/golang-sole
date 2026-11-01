@@ -15,7 +15,7 @@ EXPOSE 8080
 USER 65532:65532
 ENTRYPOINT ["/app/api"]
 
-FROM node:22-bookworm-slim AS web-build
+FROM node:26-bookworm-slim AS web-build
 ENV NX_DAEMON=false
 WORKDIR /src
 COPY package*.json ./
